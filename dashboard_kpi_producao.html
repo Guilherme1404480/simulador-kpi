@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0E1420">
+<meta name="description" content="Simulador acadêmico de indicadores de produção: OEE, Disponibilidade, Performance e Qualidade.">
+<title>Simulador KPI de Produção</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="KPI Produção">
+<style>
+  :root{
+    --bg:#0E1420;
+    --panel:#161E2C;
+    --panel-2:#1D2738;
+    --border:#2A3548;
+    --text:#E7ECF3;
+    --text-muted:#93A0B4;
+    --accent:#F2A93B;
+    --accent-ink:#2A1B03;
+    --teal:#35B7A6;
+    --danger:#E1544C;
+    --good:#4CC38A;
+    --radius:10px;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  *,*::before,*::after{box-sizing:inherit}
+  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  html,body{height:100%}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--font-ui);
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important; transition-duration:.01ms !important;}
+  }
+  a{color:var(--teal)}
+  button{font-family:inherit}
+  button:focus-visible, input:focus-visible, summary:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px;
+  }
+
+  .wrap{max-width:920px;margin:0 auto;padding:0 16px 64px}
+
+  header.app-header{
+    position:sticky; top:0; z-index:5;
+    background:linear-gradient(180deg, var(--bg) 70%, rgba(14,20,32,0));
+    padding:calc(env(safe-area-inset-top,0px) + 18px) 16px 14px;
+    border-bottom:1px solid var(--border);
+  }
+  header.app-header .inner{max-width:920px;margin:0 auto;display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  header.app-header h1{
+    font-size:1.15rem; margin:0; font-weight:700; letter-spacing:.01em;
+  }
+  header.app-header .tag{
+    font-family:var(--font-mono); font-size:.72rem; color:var(--text-muted);
+  }
+
+  section{margin-top:28px}
+  h2{font-size:.95rem; font-weight:700; margin:0 0 4px; color:var(--text)}
+  .section-sub{color:var(--text-muted); font-size:.85rem; margin:0 0 14px}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:16px;
+  }
+
+  /* ---------- inputs ---------- */
+  .field-grid{
+    display:grid; grid-template-columns:1fr; gap:12px;
+  }
+  @media (min-width:560px){
+    .field-grid{grid-template-columns:1fr 1fr}
+  }
+  .field label{
+    display:block; font-size:.78rem; color:var(--text-muted); margin-bottom:5px;
+  }
+  .field .unit{color:var(--text-muted); font-weight:400}
+  .field input{
+    width:100%; background:var(--panel-2); border:1px solid var(--border);
+    color:var(--text); border-radius:8px; padding:10px 11px; font-size:1rem;
+    font-family:var(--font-mono);
+  }
+  .field input.invalid{border-color:var(--danger)}
+  .field .hint{font-size:.72rem; color:var(--danger); margin-top:4px; min-height:1em}
+
+  .actions{display:flex; gap:10px; margin-top:16px; flex-wrap:wrap}
+  .btn{
+    border:1px solid transparent; border-radius:8px; padding:11px 18px;
+    font-size:.9rem; font-weight:600; cursor:pointer;
+  }
+  .btn-primary{background:var(--accent); color:var(--accent-ink)}
+  .btn-primary:active{transform:translateY(1px)}
+  .btn-secondary{background:transparent; border-color:var(--border); color:var(--text)}
+  .btn-secondary:active{transform:translateY(1px)}
+  .btn-ghost{background:var(--panel-2); border-color:var(--border); color:var(--text); font-weight:500; font-size:.8rem; padding:8px 12px}
+  .btn-ghost[aria-pressed="true"]{border-color:var(--accent); color:var(--accent)}
+
+  /* ---------- gauges ---------- */
+  .gauge-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px}
+  @media (min-width:560px){.gauge-grid{grid-template-columns:repeat(4,1fr)}}
+  .gauge-card{
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:14px 10px; text-align:center;
+  }
+  .ring{
+    width:84px; height:84px; border-radius:50%; margin:0 auto 8px;
+    background:conic-gradient(var(--ring-color,var(--accent)) calc(var(--pct,0) * 1%), var(--panel-2) 0);
+    display:flex; align-items:center; justify-content:center;
+    position:relative;
+  }
+  .ring::before{
+    content:""; position:absolute; inset:7px; background:var(--panel); border-radius:50%;
+  }
+  .ring span{
+    position:relative; font-family:var(--font-mono); font-size:.92rem; font-weight:700;
+  }
+  .gauge-card .label{font-size:.74rem; color:var(--text-muted); margin-top:2px}
+
+  /* ---------- stat row ---------- */
+  .stat-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-top:12px}
+  @media (min-width:560px){.stat-grid{grid-template-columns:repeat(4,1fr)}}
+  .stat-card{background:var(--panel); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px}
+  .stat-card .v{font-family:var(--font-mono); font-size:1.15rem; font-weight:700}
+  .stat-card .l{font-size:.72rem; color:var(--text-muted); margin-top:2px}
+  .stat-card.good .v{color:var(--good)}
+  .stat-card.bad .v{color:var(--danger)}
+
+  /* ---------- analysis ---------- */
+  .analysis-list{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px}
+  .analysis-list li{
+    padding:10px 12px; border-radius:8px; font-size:.86rem; border-left:3px solid var(--border);
+    background:var(--panel-2);
+  }
+  .analysis-list li.positivo{border-left-color:var(--good)}
+  .analysis-list li.negativo{border-left-color:var(--danger)}
+  .analysis-list li.alerta{border-left-color:var(--accent)}
+  .analysis-list li.neutro{border-left-color:var(--teal)}
+
+  /* ---------- table ---------- */
+  table{width:100%; border-collapse:collapse; font-size:.85rem}
+  th,td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--border)}
+  th{color:var(--text-muted); font-weight:600; font-size:.75rem; text-transform:none}
+  td.num, th.num{text-align:right; font-family:var(--font-mono)}
+  .table-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+
+  /* ---------- simulation chips ---------- */
+  .chip-row{display:flex; flex-wrap:wrap; gap:8px}
+  .empty-note{color:var(--text-muted); font-size:.82rem; font-style:italic}
+
+  .compare-note{font-size:.8rem; color:var(--text-muted); margin-top:10px}
+
+  footer{margin-top:40px; padding-top:16px; border-top:1px solid var(--border); color:var(--text-muted); font-size:.75rem}
+
+  #toast{
+    position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom,0px) + 18px); transform:translate(-50%,12px);
+    background:var(--panel-2); border:1px solid var(--border); color:var(--text);
+    padding:10px 16px; border-radius:8px; font-size:.82rem;
+    opacity:0; pointer-events:none; transition:opacity .2s ease, transform .2s ease;
+    z-index:20;
+  }
+  #toast.show{opacity:1; transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="inner">
+    <h1>Simulador KPI de Produção</h1>
+    <span class="tag" id="statusTurno">turno 8,0 h · 1,0 h parada</span>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <section aria-labelledby="h-dados">
+    <h2 id="h-dados">Dados da operação</h2>
+    <p class="section-sub">Informe os dados do turno e calcule os indicadores. Os valores ficam salvos neste aparelho.</p>
+    <div class="panel">
+      <div class="field-grid">
+        <div class="field">
+          <label for="in-turno">Tempo total do turno <span class="unit">(horas)</span></label>
+          <input id="in-turno" type="number" inputmode="decimal" min="0" step="0.5" value="8">
+          <div class="hint" id="hint-turno"></div>
+        </div>
+        <div class="field">
+          <label for="in-paradas">Paradas planejadas <span class="unit">(horas)</span></label>
+          <input id="in-paradas" type="number" inputmode="decimal" min="0" step="0.5" value="1">
+          <div class="hint" id="hint-paradas"></div>
+        </div>
+        <div class="field">
+          <label for="in-capacidade">Capacidade teórica <span class="unit">(peças/hora)</span></label>
+          <input id="in-capacidade" type="number" inputmode="decimal" min="0" step="1" value="100">
+          <div class="hint" id="hint-capacidade"></div>
+        </div>
+        <div class="field">
+          <label for="in-produzidas">Total de peças produzidas</label>
+          <input id="in-produzidas" type="number" inputmode="numeric" min="0" step="1" value="680">
+          <div class="hint" id="hint-produzidas"></div>
+        </div>
+        <div class="field">
+          <label for="in-defeitos">Peças com defeito</label>
+          <input id="in-defeitos" type="number" inputmode="numeric" min="0" step="1" value="20">
+          <div class="hint" id="hint-defeitos"></div>
+        </div>
+        <div class="field">
+          <label for="in-meta">Meta de peças boas</label>
+          <input id="in-meta" type="number" inputmode="numeric" min="0" step="1" value="650">
+          <div class="hint" id="hint-meta"></div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-primary" id="btn-calcular">Calcular indicadores</button>
+        <button class="btn btn-secondary" id="btn-restaurar">Restaurar situação inicial</button>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-indicadores">
+    <h2 id="h-indicadores">Indicadores</h2>
+    <p class="section-sub">OEE geral e seus três componentes.</p>
+    <div class="gauge-grid" id="gaugeGrid" aria-live="polite">
+      <div class="gauge-card">
+        <div class="ring" id="ring-oee" style="--ring-color:var(--accent)"><span id="val-oee">—</span></div>
+        <div class="label">OEE geral</div>
+      </div>
+      <div class="gauge-card">
+        <div class="ring" id="ring-disp" style="--ring-color:var(--teal)"><span id="val-disp">—</span></div>
+        <div class="label">Disponibilidade</div>
+      </div>
+      <div class="gauge-card">
+        <div class="ring" id="ring-perf" style="--ring-color:var(--teal)"><span id="val-perf">—</span></div>
+        <div class="label">Performance</div>
+      </div>
+      <div class="gauge-card">
+        <div class="ring" id="ring-qual" style="--ring-color:var(--teal)"><span id="val-qual">—</span></div>
+        <div class="label">Qualidade</div>
+      </div>
+    </div>
+
+    <div class="stat-grid" aria-live="polite">
+      <div class="stat-card" id="stat-desperdicio">
+        <div class="v" id="val-desperdicio">—</div>
+        <div class="l">Taxa de desperdício</div>
+      </div>
+      <div class="stat-card" id="stat-atingimento">
+        <div class="v" id="val-atingimento">—</div>
+        <div class="l">Atingimento da meta</div>
+      </div>
+      <div class="stat-card good">
+        <div class="v" id="val-boas">—</div>
+        <div class="l">Peças boas</div>
+      </div>
+      <div class="stat-card bad">
+        <div class="v" id="val-defeito">—</div>
+        <div class="l">Peças com defeito</div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-analise">
+    <h2 id="h-analise">Análise operacional</h2>
+    <p class="section-sub">Gerada automaticamente a partir dos valores calculados acima.</p>
+    <ul class="analysis-list panel" id="analiseList">
+      <li class="neutro">Informe os dados e toque em "Calcular indicadores" para gerar a análise.</li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-resumo">
+    <h2 id="h-resumo">Tabela de resumo</h2>
+    <div class="panel table-scroll">
+      <table>
+        <thead><tr><th>Indicador</th><th class="num">Valor</th></tr></thead>
+        <tbody id="tabelaResumo">
+          <tr><td colspan="2" class="empty-note">Sem cálculo ainda.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-sims" id="secSims">
+    <h2 id="h-sims">Simulações da atividade</h2>
+    <p class="section-sub">Reproduz os cenários descritos na atividade. Toca em um item para carregar os valores e calcular.</p>
+    <div class="panel">
+      <div class="chip-row" id="chipRow"></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-comparacao" id="secComparacao" hidden>
+    <h2 id="h-comparacao">Simulação 7 — Comparação entre fábricas</h2>
+    <p class="section-sub">Fábrica A e Fábrica B, calculadas com os mesmos dados da atividade, lado a lado.</p>
+    <div class="panel table-scroll">
+      <table id="tabelaComparacaoFabricas"></table>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-personalizada" id="secPersonalizada" hidden>
+    <h2 id="h-personalizada">Minha simulação personalizada</h2>
+    <p class="section-sub">Você alterou <span id="qtdAlterados">0</span> dado(s) em relação à situação inicial. Comparação automática abaixo.</p>
+    <div class="panel table-scroll">
+      <table id="tabelaPersonalizada"></table>
+    </div>
+  </section>
+
+  <footer>
+    <p><strong>Fórmulas utilizadas</strong> — Disponibilidade = Tempo de produção ÷ Tempo total do turno; Tempo de produção = Turno − Paradas; Performance = Produção realizada ÷ Produção teórica; Produção teórica = Tempo de produção × Capacidade; Qualidade = Peças boas ÷ Peças produzidas; OEE = Disponibilidade × Performance × Qualidade; Desperdício = Defeitos ÷ Produzidas; Atingimento = Peças boas ÷ Meta.</p>
+    <p>Simulador acadêmico — funciona totalmente offline, sem coleta de dados nem envio a servidores externos.</p>
+  </footer>
+</div>
+
+<div id="toast" role="status"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // 1. SITUAÇÃO INICIAL (seção 5 da atividade)
+  // ============================================================
+  const SITUACAO_INICIAL = { turno:8, paradas:1, capacidade:100, produzidas:680, defeitos:20, meta:650 };
+
+  // ============================================================
+  // 2. FORMATAÇÃO NO PADRÃO BRASILEIRO
+  // ============================================================
+  function formatPct(v){
+    if (v === null || v === undefined || !isFinite(v)) return "—";
+    return (v*100).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}) + '%';
+  }
+  function formatNum1(v){
+    return v.toLocaleString('pt-BR',{minimumFractionDigits:1, maximumFractionDigits:2});
+  }
+  function formatInt(v){
+    return Math.round(v).toLocaleString('pt-BR');
+  }
+
+  // ============================================================
+  // 3. MOTOR DE CÁLCULO — separado da interface.
+  //    Fórmulas conforme especificação (seção 3 da atividade).
+  // ============================================================
+  const KPIEngine = {
+    // Decisão de implementação: valores negativos são tratados como 0;
+    // "Paradas planejadas" não pode exceder o turno; "Peças com defeito"
+    // não pode exceder "Peças produzidas" (o excesso é limitado ao total
+    // produzido, já que fisicamente não é possível haver mais peças
+    // defeituosas do que peças produzidas).
+    clamp0(v){ v = Number(v); return isFinite(v) && v >= 0 ? v : 0; },
+
+    calcular(input){
+      const turno = this.clamp0(input.turno);
+      const paradas = Math.min(this.clamp0(input.paradas), turno);
+      const capacidade = this.clamp0(input.capacidade);
+      const produzidas = this.clamp0(input.produzidas);
+      const defeitos = Math.min(this.clamp0(input.defeitos), produzidas);
+      const meta = this.clamp0(input.meta);
+
+      // Tempo de produção = Tempo total do turno - Paradas planejadas
+      const tempoProducao = turno - paradas;
+
+      // Disponibilidade = Tempo de produção / Tempo total do turno
+      const disponibilidade = turno > 0 ? tempoProducao / turno : 0;
+
+      // Produção teórica = Tempo de produção × Capacidade teórica
+      const producaoTeorica = tempoProducao * capacidade;
+
+      // Performance = Produção realizada / Produção teórica
+      const performance = producaoTeorica > 0 ? produzidas / producaoTeorica : 0;
+
+      // Peças boas = Peças produzidas - Peças com defeito
+      const pecasBoas = produzidas - defeitos;
+
+      // Qualidade = Peças boas / Peças produzidas
+      const qualidade = produzidas > 0 ? pecasBoas / produzidas : 0;
+
+      // OEE = Disponibilidade × Performance × Qualidade
+      const oee = disponibilidade * performance * qualidade;
+
+      // Taxa de desperdício = Peças com defeito / Peças produzidas
+      const desperdicio = produzidas > 0 ? defeitos / produzidas : 0;
+
+      // Atingimento da meta = Peças boas / Meta de peças boas
+      // meta = 0 é indefinido matematicamente -> null (tratado na interface como "—")
+      const atingimento = meta > 0 ? pecasBoas / meta : null;
+
+      return { turno, paradas, capacidade, produzidas, defeitos, meta,
+               tempoProducao, disponibilidade, producaoTeorica, performance,
+               pecasBoas, qualidade, oee, desperdicio, atingimento };
+    },
+
+    // Análise operacional: só afirma o que decorre diretamente dos dados
+    // e das fórmulas acima. Os limiares de "desperdício relevante" (5%) e
+    // as faixas de referência de OEE (60% / 85%) são convenções gerais e
+    // usuais na literatura de manufatura (não são dados desta operação
+    // específica) — isso é indicado explicitamente no texto gerado.
+    analisar(r){
+      const notas = [];
+
+      if (r.meta <= 0){
+        notas.push({tipo:'alerta', texto:'Meta de peças boas não foi definida (0) — não é possível calcular o atingimento da meta.'});
+      } else if (r.atingimento >= 1){
+        notas.push({tipo:'positivo', texto:`Meta atingida: ${formatPct(r.atingimento)} da meta de ${formatInt(r.meta)} peças boas (${formatInt(r.pecasBoas)} produzidas).`});
+      } else {
+        notas.push({tipo:'negativo', texto:`Meta não atingida: ${formatPct(r.atingimento)} da meta de ${formatInt(r.meta)} peças boas (faltaram ${formatInt(Math.max(0, r.meta - r.pecasBoas))} peças boas).`});
+      }
+
+      if (r.paradas > 0){
+        notas.push({
+          tipo: r.disponibilidade < 0.9 ? 'negativo' : 'neutro',
+          texto:`Disponibilidade de ${formatPct(r.disponibilidade)}: reduzida pelas ${formatNum1(r.paradas)} h de paradas planejadas em um turno de ${formatNum1(r.turno)} h.`
+        });
+      } else {
+        notas.push({tipo:'positivo', texto:`Disponibilidade de ${formatPct(r.disponibilidade)}: nenhuma parada planejada foi informada.`});
+      }
+
+      if (r.producaoTeorica > 0){
+        notas.push({
+          tipo: r.performance < 0.9 ? 'negativo' : 'neutro',
+          texto:`Performance de ${formatPct(r.performance)}: ${formatInt(r.produzidas)} peças produzidas frente a uma produção teórica de ${formatInt(Math.round(r.producaoTeorica))} peças para o tempo de produção disponível.`
+        });
+      }
+
+      if (r.produzidas > 0){
+        if (r.desperdicio > 0.05){
+          notas.push({tipo:'negativo', texto:`Quantidade relevante de peças com defeito: ${formatPct(r.desperdicio)} da produção (${formatInt(r.defeitos)} peças), acima do limiar de referência de 5% usado neste simulador. O simulador não registra a causa da não conformidade (etapa, turno, operador, equipamento) — dados adicionais seriam necessários para investigar a causa raiz.`});
+        } else if (r.defeitos > 0){
+          notas.push({tipo:'neutro', texto:`Taxa de desperdício de ${formatPct(r.desperdicio)} (${formatInt(r.defeitos)} peças), dentro do limiar de referência de 5% usado neste simulador.`});
+        } else {
+          notas.push({tipo:'positivo', texto:'Nenhuma peça com defeito foi registrada neste cálculo.'});
+        }
+      }
+
+      if (r.oee < 0.6){
+        notas.push({tipo:'negativo', texto:`OEE de ${formatPct(r.oee)}, abaixo da faixa de referência geral de ~60% citada na literatura de manufatura — recomenda-se investigação operacional para identificar qual dos três fatores (disponibilidade, performance ou qualidade) mais penaliza o resultado.`});
+      } else if (r.oee >= 0.85){
+        notas.push({tipo:'positivo', texto:`OEE de ${formatPct(r.oee)}, dentro da faixa de referência geral de "classe mundial" (~85%) citada na literatura de manufatura.`});
+      }
+
+      return notas;
+    }
+  };
+
+  // ============================================================
+  // 4. ESTADO E ELEMENTOS
+  // ============================================================
+  const els = {
+    turno: document.getElementById('in-turno'),
+    paradas: document.getElementById('in-paradas'),
+    capacidade: document.getElementById('in-capacidade'),
+    produzidas: document.getElementById('in-produzidas'),
+    defeitos: document.getElementById('in-defeitos'),
+    meta: document.getElementById('in-meta'),
+  };
+  let ultimoResultado = null;
+
+  function lerInputs(){
+    return {
+      turno: parseFloat(els.turno.value),
+      paradas: parseFloat(els.paradas.value),
+      capacidade: parseFloat(els.capacidade.value),
+      produzidas: parseFloat(els.produzidas.value),
+      defeitos: parseFloat(els.defeitos.value),
+      meta: parseFloat(els.meta.value),
+    };
+  }
+
+  function aplicarInputs(dados){
+    els.turno.value = dados.turno;
+    els.paradas.value = dados.paradas;
+    els.capacidade.value = dados.capacidade;
+    els.produzidas.value = dados.produzidas;
+    els.defeitos.value = dados.defeitos;
+    els.meta.value = dados.meta;
+  }
+
+  // ---- validação (seção 3: evitar divisão por zero / valores inválidos) ----
+  function validar(){
+    let ok = true;
+    const hints = {
+      turno: document.getElementById('hint-turno'),
+      paradas: document.getElementById('hint-paradas'),
+      capacidade: document.getElementById('hint-capacidade'),
+      produzidas: document.getElementById('hint-produzidas'),
+      defeitos: document.getElementById('hint-defeitos'),
+      meta: document.getElementById('hint-meta'),
+    };
+    Object.values(hints).forEach(h => h.textContent = '');
+    Object.values(els).forEach(e => e.classList.remove('invalid'));
+
+    const v = lerInputs();
+    if (!(v.turno > 0)){
+      hints.turno.textContent = 'Informe um turno maior que zero.';
+      els.turno.classList.add('invalid'); ok = false;
+    }
+    if (v.paradas < 0){
+      hints.paradas.textContent = 'Não pode ser negativo.';
+      els.paradas.classList.add('invalid'); ok = false;
+    }
+    if (v.turno > 0 && v.paradas > v.turno){
+      hints.paradas.textContent = 'Maior que o turno — foi limitado ao turno no cálculo.';
+    }
+    if (v.capacidade < 0){
+      hints.capacidade.textContent = 'Não pode ser negativa.';
+      els.capacidade.classList.add('invalid'); ok = false;
+    }
+    if (v.produzidas < 0){
+      hints.produzidas.textContent = 'Não pode ser negativo.';
+      els.produzidas.classList.add('invalid'); ok = false;
+    }
+    if (v.defeitos < 0){
+      hints.defeitos.textContent = 'Não pode ser negativo.';
+      els.defeitos.classList.add('invalid'); ok = false;
+    }
+    if (v.produzidas >= 0 && v.defeitos > v.produzidas){
+      hints.defeitos.textContent = 'Maior que as peças produzidas — foi limitado ao total produzido no cálculo.';
+    }
+    if (v.meta < 0){
+      hints.meta.textContent = 'Não pode ser negativa.';
+      els.meta.classList.add('invalid'); ok = false;
+    }
+    return ok;
+  }
+
+  // ============================================================
+  // 5. RENDERIZAÇÃO
+  // ============================================================
+  function setRing(idRing, idVal, pct){
+    const ring = document.getElementById(idRing);
+    const val = document.getElementById(idVal);
+    const clamped = isFinite(pct) ? Math.max(0, Math.min(1, pct)) : 0;
+    ring.style.setProperty('--pct', (clamped*100).toFixed(2));
+    val.textContent = formatPct(pct);
+  }
+
+  function renderResultado(r){
+    setRing('ring-oee','val-oee', r.oee);
+    setRing('ring-disp','val-disp', r.disponibilidade);
+    setRing('ring-perf','val-perf', r.performance);
+    setRing('ring-qual','val-qual', r.qualidade);
+
+    document.getElementById('val-desperdicio').textContent = formatPct(r.desperdicio);
+    document.getElementById('val-atingimento').textContent = formatPct(r.atingimento);
+    document.getElementById('val-boas').textContent = formatInt(r.pecasBoas);
+    document.getElementById('val-defeito').textContent = formatInt(r.defeitos);
+
+    const statDesp = document.getElementById('stat-desperdicio');
+    statDesp.className = 'stat-card' + (r.desperdicio > 0.05 ? ' bad' : '');
+    const statAting = document.getElementById('stat-atingimento');
+    statAting.className = 'stat-card' + (r.atingimento !== null ? (r.atingimento >= 1 ? ' good' : ' bad') : '');
+
+    // análise
+    const lista = document.getElementById('analiseList');
+    const notas = KPIEngine.analisar(r);
+    lista.innerHTML = notas.map(n => `<li class="${n.tipo}">${n.texto}</li>`).join('');
+
+    // tabela resumo
+    const linhas = [
+      ['OEE geral', formatPct(r.oee)],
+      ['Disponibilidade', formatPct(r.disponibilidade)],
+      ['Performance', formatPct(r.performance)],
+      ['Qualidade', formatPct(r.qualidade)],
+      ['Taxa de desperdício', formatPct(r.desperdicio)],
+      ['Atingimento da meta', formatPct(r.atingimento)],
+      ['Peças boas', formatInt(r.pecasBoas)],
+      ['Peças com defeito', formatInt(r.defeitos)],
+      ['Tempo de produção', formatNum1(r.tempoProducao) + ' h'],
+      ['Produção teórica', formatInt(r.producaoTeorica) + ' peças'],
+    ];
+    document.getElementById('tabelaResumo').innerHTML =
+      linhas.map(([k,v]) => `<tr><td>${k}</td><td class="num">${v}</td></tr>`).join('');
+
+    document.getElementById('statusTurno').textContent =
+      `turno ${formatNum1(r.turno)} h · ${formatNum1(r.paradas)} h parada`;
+
+    renderPersonalizada(r);
+  }
+
+  function calcularEExibir(){
+    if (!validar()) return;
+    const r = KPIEngine.calcular(lerInputs());
+    ultimoResultado = r;
+    renderResultado(r);
+    salvarEstado();
+    return r;
+  }
+
+  // ---- Seção 8: simulação personalizada ----
+  // Decisão de implementação: em vez de um formulário duplicado, o próprio
+  // painel de dados é reaproveitado. Sempre que 2 ou mais campos estiverem
+  // diferentes da Situação inicial, a comparação aparece automaticamente.
+  function renderPersonalizada(r){
+    const atual = { turno:r.turno, paradas:r.paradas, capacidade:r.capacidade,
+                     produzidas:r.produzidas, defeitos:r.defeitos, meta:r.meta };
+    const chaves = Object.keys(SITUACAO_INICIAL);
+    const alterados = chaves.filter(k => Number(atual[k]) !== Number(SITUACAO_INICIAL[k]));
+
+    document.getElementById('qtdAlterados').textContent = alterados.length;
+    const sec = document.getElementById('secPersonalizada');
+
+    if (alterados.length < 2){
+      sec.hidden = true;
+      return;
+    }
+    sec.hidden = false;
+
+    const base = KPIEngine.calcular(SITUACAO_INICIAL);
+    const linhas = [
+      ['OEE geral', formatPct(base.oee), formatPct(r.oee)],
+      ['Disponibilidade', formatPct(base.disponibilidade), formatPct(r.disponibilidade)],
+      ['Performance', formatPct(base.performance), formatPct(r.performance)],
+      ['Qualidade', formatPct(base.qualidade), formatPct(r.qualidade)],
+      ['Taxa de desperdício', formatPct(base.desperdicio), formatPct(r.desperdicio)],
+      ['Atingimento da meta', formatPct(base.atingimento), formatPct(r.atingimento)],
+      ['Peças boas', formatInt(base.pecasBoas), formatInt(r.pecasBoas)],
+      ['Peças com defeito', formatInt(base.defeitos), formatInt(r.defeitos)],
+    ];
+    const head = '<thead><tr><th>Indicador</th><th class="num">Situação inicial</th><th class="num">Minha simulação</th></tr></thead>';
+    const body = '<tbody>' + linhas.map(([k,a,b]) => `<tr><td>${k}</td><td class="num">${a}</td><td class="num">${b}</td></tr>`).join('') + '</tbody>';
+    document.getElementById('tabelaPersonalizada').innerHTML = head + body;
+  }
+
+  // ---- Seção 6.7: comparação entre fábricas ----
+  const FABRICA_A = { nome:'Fábrica A', turno:8, paradas:1, capacidade:100, produzidas:680, defeitos:20, meta:650 };
+  const FABRICA_B = { nome:'Fábrica B', turno:8, paradas:1, capacidade:100, produzidas:700, defeitos:80, meta:650 };
+
+  function mostrarComparacaoFabricas(){
+    const a = KPIEngine.calcular(FABRICA_A);
+    const b = KPIEngine.calcular(FABRICA_B);
+    const linhas = [
+      ['OEE geral', formatPct(a.oee), formatPct(b.oee)],
+      ['Disponibilidade', formatPct(a.disponibilidade), formatPct(b.disponibilidade)],
+      ['Performance', formatPct(a.performance), formatPct(b.performance)],
+      ['Qualidade', formatPct(a.qualidade), formatPct(b.qualidade)],
+      ['Taxa de desperdício', formatPct(a.desperdicio), formatPct(b.desperdicio)],
+      ['Atingimento da meta', formatPct(a.atingimento), formatPct(b.atingimento)],
+      ['Peças boas', formatInt(a.pecasBoas), formatInt(b.pecasBoas)],
+      ['Peças com defeito', formatInt(a.defeitos), formatInt(b.defeitos)],
+    ];
+    const head = `<thead><tr><th>Indicador</th><th class="num">${FABRICA_A.nome}</th><th class="num">${FABRICA_B.nome}</th></tr></thead>`;
+    const body = '<tbody>' + linhas.map(([k,x,y]) => `<tr><td>${k}</td><td class="num">${x}</td><td class="num">${y}</td></tr>`).join('') + '</tbody>';
+    document.getElementById('tabelaComparacaoFabricas').innerHTML = head + body;
+    document.getElementById('secComparacao').hidden = false;
+    document.getElementById('secComparacao').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  // ============================================================
+  // 6. SIMULAÇÕES PRÉ-DEFINIDAS (seções 6 e 7 da atividade)
+  // ============================================================
+  const SIMULACOES = [
+    { id:'sim1', nome:'Simulação 1', dados:{turno:8, paradas:1, capacidade:100, produzidas:680, defeitos:20, meta:650} },
+    { id:'sim2', nome:'Simulação 2 (paradas 2 h)', dados:{turno:8, paradas:2, capacidade:100, produzidas:680, defeitos:20, meta:650} },
+    { id:'sim3', nome:'Simulação 3 (produção 760)', dados:{turno:8, paradas:1, capacidade:100, produzidas:760, defeitos:20, meta:650} },
+    { id:'sim4', nome:'Simulação 4 (defeitos 100)', dados:{turno:8, paradas:1, capacidade:100, produzidas:680, defeitos:100, meta:650} },
+    { id:'sim5', nome:'Simulação 5', dados:{turno:8, paradas:1, capacidade:100, produzidas:750, defeitos:100, meta:650} },
+    { id:'sim6', nome:'Simulação 6', dados:{turno:8, paradas:1, capacidade:100, produzidas:550, defeitos:10, meta:650} },
+    { id:'sim7', nome:'Simulação 7 — Comparar fábricas', comparacao:true },
+    { id:'desafio', nome:'Desafio de produção', dados:{turno:8, paradas:1.5, capacidade:120, produzidas:700, defeitos:35, meta:650} },
+  ];
+
+  function montarChips(){
+    const row = document.getElementById('chipRow');
+    row.innerHTML = SIMULACOES.map(s => `<button type="button" class="btn btn-ghost" data-sim="${s.id}">${s.nome}</button>`).join('');
+    row.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button[data-sim]');
+      if (!btn) return;
+      const sim = SIMULACOES.find(s => s.id === btn.dataset.sim);
+      if (!sim) return;
+      if (sim.comparacao){
+        mostrarComparacaoFabricas();
+        mostrarToast('Comparação entre fábricas gerada.');
+        return;
+      }
+      document.getElementById('secComparacao').hidden = true;
+      aplicarInputs(sim.dados);
+      calcularEExibir();
+      mostrarToast(sim.nome + ' carregada.');
+      document.getElementById('h-indicadores').scrollIntoView({behavior:'smooth', block:'start'});
+    });
+  }
+
+  // ============================================================
+  // 7. PERSISTÊNCIA LOCAL (seção 14 — apenas neste aparelho)
+  // ============================================================
+  const STORAGE_KEY = 'simulador-kpi-producao/v1';
+  function salvarEstado(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(lerInputs()));
+    }catch(e){ /* localStorage indisponível — segue sem persistência */ }
+  }
+  function carregarEstado(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return false;
+      const dados = JSON.parse(raw);
+      if (!dados || typeof dados !== 'object') return false;
+      aplicarInputs(dados);
+      return true;
+    }catch(e){ return false; }
+  }
+
+  // ============================================================
+  // 8. TOAST
+  // ============================================================
+  let toastTimer = null;
+  function mostrarToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  }
+
+  // ============================================================
+  // 9. EVENTOS
+  // ============================================================
+  document.getElementById('btn-calcular').addEventListener('click', () => {
+    if (calcularEExibir()) mostrarToast('Indicadores calculados.');
+  });
+  document.getElementById('btn-restaurar').addEventListener('click', () => {
+    aplicarInputs(SITUACAO_INICIAL);
+    document.getElementById('secComparacao').hidden = true;
+    calcularEExibir();
+    mostrarToast('Situação inicial restaurada.');
+  });
+
+  // ============================================================
+  // 10. INICIALIZAÇÃO
+  // ============================================================
+  montarChips();
+  if (!carregarEstado()) aplicarInputs(SITUACAO_INICIAL);
+  calcularEExibir();
+
+  // ---- registro do service worker (PWA / offline — seção 10) ----
+  if ('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {
+        /* registro indisponível neste contexto (ex.: pré-visualização) —
+           a página continua funcionando normalmente sem cache offline. */
+      });
+    });
+  }
+})();
+</script>
+</body>
+</html>
